@@ -1,0 +1,26 @@
+{
+  "name": "clarifai_api",
+  "version": "1.0.0",
+  "description": "server for clarifai_app",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ravraw/clarifai_API.git"
+  },
+  "author": "ravraw",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ravraw/clarifai_API/issues"
+  },
+  "homepage": "https://github.com/ravraw/clarifai_API#readme",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^1.18.2"
+  }
+}
