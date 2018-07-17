@@ -95,15 +95,28 @@ function userExist(email) {
 }
 
 app.post("/register", (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email } = req.body;
+
+  //   console.log(newPassword);
   if (userExist(email)) {
     return res.status(400).json("EMAIL ALREADY EXIST ");
   } else {
+    // let newPassword = bcrypt.hash(
+    //   req.body.password,
+    //   null,
+    //   null,
+    //   (err, hash) => {
+    //     return hash;
+    //   }
+    // );
+    // console.log(newPassword);
     let newUser = {
       id: Math.floor(Math.random() * 10000),
       name: name,
       email: email,
-      password: password,
+      password: bcrypt.hash(req.body.password, null, null, (err, hash) => {
+        return hash;
+      }),
       entries: 0,
       joined: new Date()
     };
