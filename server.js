@@ -1,11 +1,20 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const bcrypt = require("bcrypt-nodejs");
+const cors = require("cors");
 
 const app = express();
 
 app.use(bodyParser.json());
+app.use(cors());
 
 const database = {
+  currentUser: {
+    id: "",
+    name: "",
+    email: "",
+    entries: 0
+  },
   users: [
     {
       id: "0001",
@@ -35,7 +44,7 @@ const database = {
 };
 
 //-----GET "/"
-app.get("/", (req, res) => {
+app.get("/ ", (req, res) => {
   res.status(200).send("success");
 });
 
@@ -60,7 +69,14 @@ app.get("/users/:id", (req, res) => {
 app.post("/signin", (req, res) => {
   database.users.forEach(user => {
     if (user.email === req.body.email && user.password === req.body.password) {
-      res.status(200).json(`welcome ${user.name}`);
+      database.currentUser = {
+        ...database.currentUser,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        entries: user.entries
+      };
+      res.status(200).json(database.currentUser);
     }
   });
 
@@ -68,23 +84,45 @@ app.post("/signin", (req, res) => {
 });
 
 // ------REGISTER "/register"
+function userExist(email) {
+  let result = false;
+  database.users.forEach(user => {
+    if (user.email === email) {
+      result = true;
+    }
+  });
+  return result;
+}
 
 app.post("/register", (req, res) => {
   const { name, email, password } = req.body;
-  database.users.forEach(user => {
-    if (user.email === req.body.email) {
-      res.status(400).json(`Email already in use`);
-    }
-    database.users.push({
+  if (userExist(email)) {
+    return res.status(400).json("EMAIL ALREADY EXIST ");
+  } else {
+    let newUser = {
       id: Math.floor(Math.random() * 10000),
       name: name,
       email: email,
       password: password,
       entries: 0,
       joined: new Date()
-    });
-    res.status(200).json(database.users[database.users.length - 1]);
+    };
+    database.users.push(newUser);
+    return res.status(200).json(database.users[database.users.length - 1]);
+  }
+});
+
+// PUT "/image"   update entries
+app.put("/image", (req, res) => {
+  const { id } = req.body;
+  console.log(id);
+  database.users.forEach(user => {
+    if (user.id === id) {
+      user.entries++;
+      res.status(200).json(user.entries);
+    }
   });
+  res.status(404).json("user not found");
 });
 
 app.listen(3005, () => {
