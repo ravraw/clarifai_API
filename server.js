@@ -16,17 +16,24 @@ const db = knex({
 
 const app = express();
 
+// Middlewares
 app.use(bodyParser.json());
 app.use(cors());
 
 //-----GET "/"
 app.get("/ ", (req, res) => {
-  res.status(200).send("success");
+  return res.status(200).send("success");
 });
 
 //-----GET "/users"
 app.get("/users", (req, res) => {
-  res.status(200).send(database.users);
+  db.select("*")
+    .from("users")
+    .where("id", "=", 1)
+    .then(data => {
+      return res.status(200).json(data[0]);
+    })
+    .catch(res.status(400).json("Somthing went wrong"));
 });
 
 //-----GET "/users/:id"
@@ -35,7 +42,7 @@ app.get("/users/:id", (req, res) => {
   db.select("*")
     .from("users")
     .where({ id: id })
-    .then(user => res.status(404).json(user[0] === undefined ? error : user[0]))
+    .then(user => res.status(200).json(user[0] === undefined ? error : user[0]))
     .catch(err => res.status(404).json("user not found"));
 });
 
