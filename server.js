@@ -2,46 +2,22 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const bcrypt = require("bcrypt-nodejs");
 const cors = require("cors");
+const knex = require("knex");
+
+const db = knex({
+  client: "pg",
+  connection: {
+    host: "127.0.0.1",
+    user: "ravindrarawat",
+    password: "",
+    database: "clarifai_app"
+  }
+});
 
 const app = express();
 
 app.use(bodyParser.json());
 app.use(cors());
-
-const database = {
-  currentUser: {
-    id: "",
-    name: "",
-    email: "",
-    entries: 0
-  },
-  users: [
-    {
-      id: "0001",
-      name: "john",
-      email: "john@gmail.com",
-      password: "john123",
-      entries: 0,
-      joined: new Date()
-    },
-    {
-      id: "0002",
-      name: "sam",
-      email: "sam@gmail.com",
-      password: "sam123",
-      entries: 0,
-      joined: new Date()
-    },
-    {
-      id: "0003",
-      name: "molly",
-      email: "molly@gmail.com",
-      password: "molly123",
-      entries: 0,
-      joined: new Date()
-    }
-  ]
-};
 
 //-----GET "/"
 app.get("/ ", (req, res) => {
@@ -56,86 +32,74 @@ app.get("/users", (req, res) => {
 //-----GET "/users/:id"
 app.get("/users/:id", (req, res) => {
   const { id } = req.params;
-  console.log(id);
-  database.users.forEach(user => {
-    if (user.id === id) {
-      res.status(200).json(user);
-    }
-  });
-  res.status(404).json("user not found");
+  db.select("*")
+    .from("users")
+    .where({ id: id })
+    .then(user => res.status(404).json(user[0] === undefined ? error : user[0]))
+    .catch(err => res.status(404).json("user not found"));
 });
 
 //-----POST "/signin"
 app.post("/signin", (req, res) => {
-  database.users.forEach(user => {
-    if (user.email === req.body.email && user.password === req.body.password) {
-      database.currentUser = {
-        ...database.currentUser,
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        entries: user.entries
-      };
-      res.status(200).json(database.currentUser);
-    }
-  });
+  db.select("email", "hash")
+    .from("login")
+    .where("email", "=", req.body.email)
+    .then(data => {
+      const isValid = bcrypt.compareSync(req.body.password, data[0].hash);
 
-  res.status(400).json("Incorrect username or password");
+      if (isValid) {
+        return db
+          .select("*")
+          .from("users")
+          .where("email", "=", req.body.email)
+          .then(user => {
+            res.status(200).json(user[0]);
+          })
+          .catch(err => res.status(400).json("unable to get user"));
+      }
+    })
+    .catch(err => res.status(400).json("wrong credentials"));
 });
 
 // ------REGISTER "/register"
-function userExist(email) {
-  let result = false;
-  database.users.forEach(user => {
-    if (user.email === email) {
-      result = true;
-    }
-  });
-  return result;
-}
-
 app.post("/register", (req, res) => {
-  const { name, email } = req.body;
-
-  //   console.log(newPassword);
-  if (userExist(email)) {
-    return res.status(400).json("EMAIL ALREADY EXIST ");
-  } else {
-    // let newPassword = bcrypt.hash(
-    //   req.body.password,
-    //   null,
-    //   null,
-    //   (err, hash) => {
-    //     return hash;
-    //   }
-    // );
-    // console.log(newPassword);
-    let newUser = {
-      id: Math.floor(Math.random() * 10000),
-      name: name,
-      email: email,
-      password: bcrypt.hash(req.body.password, null, null, (err, hash) => {
-        return hash;
-      }),
-      entries: 0,
-      joined: new Date()
-    };
-    database.users.push(newUser);
-    return res.status(200).json(database.users[database.users.length - 1]);
-  }
+  const { username, email, password } = req.body;
+  const hash = bcrypt.hashSync(password);
+  db.transaction(trx => {
+    trx
+      .insert({
+        hash: hash,
+        email: email
+      })
+      .into("login")
+      .returning("email")
+      .then(loginEmail => {
+        return trx("users")
+          .returning("*")
+          .insert({
+            username: username,
+            email: email,
+            entries: 0,
+            joined: new Date()
+          })
+          .then(user => res.status(200).json(user[0]));
+      })
+      .then(trx.commit)
+      .catch(trx.rollback);
+  }).catch(err => res.status(400).json("username / email not available"));
 });
 
 // PUT "/image"   update entries
 app.put("/image", (req, res) => {
   const { id } = req.body;
-  console.log(id);
-  database.users.forEach(user => {
-    if (user.id === id) {
-      user.entries++;
-      res.status(200).json(user.entries);
-    }
-  });
-  res.status(404).json("user not found");
+  db("users")
+    .where("id", "=", id)
+    .increment("entries", 1)
+    .returning("entries")
+    .then(entries =>
+      res.status(200).json(entries[0] === undefined ? error : entries[0])
+    )
+    .catch(err => res.status(404).json("unable to get entries"));
 });
 
 app.listen(3005, () => {
